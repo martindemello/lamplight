@@ -3,8 +3,7 @@ open Core.Std
 module Memory = struct
   type t = string
 
-  (* z machine has a hard memory limit *)
-  let init = String.make 65535 '\x00'
+  let init = String.make (256 * 1024) '\x00'
 
   let load_bytes mem s =
     String.blit ~src:s ~src_pos:0 ~dst:mem ~dst_pos:0 ~len:(String.length s)
@@ -49,6 +48,10 @@ module Header = struct
       static_mem = get_word mem 0x0e;
       abbr_table = get_word mem 0x18
     }
+
+  let dump h =
+    Printf.printf "version: %d\nhi_mem: %d\ninit_pc: %d\ndict: %d\nobj_t: %d\nglobals: %d\nstatic_mem: %d\nabbrs: %d\n" 
+    h.version h.hi_mem h.init_pc h.dict h.obj_table h.globals h.static_mem h.abbr_table
 end
 
 type zmachine = {
@@ -70,3 +73,12 @@ let init ~stack_size ~fname =
     mem = mem;
     header = Header.init mem
   }
+
+let _ =
+  let fname = "ZORK1.DAT" in
+  let contents = In_channel.read_all fname in
+  let mem = Memory.init in
+  Memory.load_bytes mem contents;
+  let header = Header.init mem in
+  Header.dump header
+
