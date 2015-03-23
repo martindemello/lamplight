@@ -30,7 +30,7 @@ type opcode_2op =
   | THROW [@@deriving enum]
 
 type opcode_1op =
-  | JZ [@value 128]
+  | JZ
   | GET_SIBLING
   | GET_CHILD
   | GET_PARENT
@@ -45,11 +45,10 @@ type opcode_1op =
   | JUMP
   | PRINT_PADDR
   | LOAD
-  | NOT_2
-  | CALL_1N [@@deriving enum]
+  | NOT [@@deriving enum]
 
 type opcode_0op =
-  | RTRUE [@value 176]
+  | RTRUE
   | RFALSE
   | PRINT
   | PRINT_RET
@@ -68,13 +67,11 @@ type opcode_0op =
   | PIRACY [@@deriving enum]
 
 type opcode_var =
-  | CALL [@value 224]
-  | CALL_VS
+  | CALL
   | STOREW
   | STOREB
   | PUT_PROP
   | SREAD
-  | AREAD
   | PRINT_CHAR
   | PRINT_NUM
   | RANDOM
@@ -94,7 +91,7 @@ type opcode_var =
   | SOUND_EFFECT
   | READ_CHAR
   | SCAN_TABLE
-  | NOT
+  | NOT_5
   | CALL_VN
   | CALL_VN2
   | TOKENIZE
@@ -130,3 +127,32 @@ type opcode_ext =
   | PUT_WIND_PROP
   | PRINT_FORM
   | MAKE_MENU [@@deriving enum]
+
+(* following txd from the inform tools *)
+type op_class = EXTENDED_OPERAND | TWO_OPERAND | ONE_OPERAND | ZERO_OPERAND | VARIABLE_OPERAND
+
+let class_of_code version opcode =
+  if version > 4 && opcode == 0xbe then
+    EXTENDED_OPERAND (* not supported yet *)
+  else if (opcode < 0x80) then
+    TWO_OPERAND
+  else if (opcode < 0xb0) then
+    ONE_OPERAND
+  else if (opcode < 0xc0) then
+    ZERO_OPERAND
+  else
+    VARIABLE_OPERAND
+
+type opcode = Op2 of opcode_2op | Op1 of opcode_1op | Op0 of opcode_0op
+            | OpVar of opcode_var | OpExt of opcode_ext
+
+let opcode_of_int version code =
+  let f x = match x with Some i -> i | None -> raise (Failure "opcode_of_int failed!") in
+  match class_of_code version code with
+  | EXTENDED_OPERAND -> OpExt (f (opcode_ext_of_enum (code land 0x3f)))
+  | TWO_OPERAND -> Op2 (f (opcode_2op_of_enum (code land 0x1f)))
+  | VARIABLE_OPERAND when ((code > 191) && (code < 224)) ->
+      Op2 (f (opcode_2op_of_enum (code land 0x3f)))
+  | VARIABLE_OPERAND -> OpVar (f (opcode_var_of_enum (code land 0x3f)))
+  | ONE_OPERAND -> Op1 (f (opcode_1op_of_enum (code land 0x0f)))
+  | ZERO_OPERAND -> Op0 (f (opcode_0op_of_enum (code land 0x0f)))
