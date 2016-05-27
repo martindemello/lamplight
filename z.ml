@@ -15,13 +15,20 @@ module Memory = struct
     mem.[i] <- Char.unsafe_of_int b
 
   (* Words are u16 stored in little-endian order *)
+  let word mem i = (get_byte mem i, get_byte mem (i + 1))
 
   let get_word mem i =
-    ((get_byte mem i) lsl 8) + (get_byte mem (i + 1))
+    let h, l = word mem i in
+    h lsl 8 + l
 
   let set_word mem i w =
     set_byte mem i (w lsr 8);
     set_byte mem (i + 1) (w land 255)
+
+  (* Unsigned and signed ints *)
+  let get_u16 mem i = get_word mem i
+
+  let get_i16 mem i = 65536 - (get_u16 mem i)
 end
 
 module Header = struct
@@ -65,13 +72,14 @@ type zmachine = {
 let init ~stack_size ~fname =
   let contents = In_channel.read_all fname in
   let mem = Memory.init in
+  let header = Header.init mem in
   Memory.load_bytes mem contents;
   {
     stack = Zstack.make stack_size;
     call_state = [];
     pc = 0;
     mem = mem;
-    header = Header.init mem
+    header = header
   }
 
 let _ =
@@ -81,4 +89,3 @@ let _ =
   Memory.load_bytes mem contents;
   let header = Header.init mem in
   Header.dump header
-
