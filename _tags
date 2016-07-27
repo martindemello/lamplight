@@ -1,0 +1,4 @@
+true: package(core)
+true: thread,debug
+
+<opcode.*>: package(ppx_deriving.std)
