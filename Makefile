@@ -1,7 +1,7 @@
-all: z
+all: main
 
-z:
-	ocamlbuild -use-ocamlfind z.native
+main:
+	ocamlbuild -use-ocamlfind main.native
 
 clean:
 	ocamlbuild -clean

@@ -1,35 +1,5 @@
 open Core.Std
-
-module Memory = struct
-  type t = string
-
-  let init = String.make (256 * 1024) '\x00'
-
-  let load_bytes mem s =
-    String.blit ~src:s ~src_pos:0 ~dst:mem ~dst_pos:0 ~len:(String.length s)
-
-  let get_byte mem i =
-    Char.to_int mem.[i]
-
-  let set_byte mem i b =
-    mem.[i] <- Char.unsafe_of_int b
-
-  (* Words are u16 stored in little-endian order *)
-  let word mem i = (get_byte mem i, get_byte mem (i + 1))
-
-  let get_word mem i =
-    let h, l = word mem i in
-    h lsl 8 + l
-
-  let set_word mem i w =
-    set_byte mem i (w lsr 8);
-    set_byte mem (i + 1) (w land 255)
-
-  (* Unsigned and signed ints *)
-  let get_u16 mem i = get_word mem i
-
-  let get_i16 mem i = 65536 - (get_u16 mem i)
-end
+open Ztypes
 
 module Header = struct
   type t = {
@@ -57,7 +27,7 @@ module Header = struct
     }
 
   let dump h =
-    Printf.printf "version: %d\nhi_mem: %d\ninit_pc: %d\ndict: %d\nobj_t: %d\nglobals: %d\nstatic_mem: %d\nabbrs: %d\n" 
+    Printf.printf "version: %d\nhi_mem: %x\ninit_pc: %x\ndict: %x\nobj_t: %x\nglobals: %x\nstatic_mem: %x\nabbrs: %x\n" 
     h.version h.hi_mem h.init_pc h.dict h.obj_table h.globals h.static_mem h.abbr_table
 end
 
@@ -72,8 +42,9 @@ type zmachine = {
 let init ~stack_size ~fname =
   let contents = In_channel.read_all fname in
   let mem = Memory.init in
-  let header = Header.init mem in
   Memory.load_bytes mem contents;
+  Printf.printf "read %d bytes\n" (String.length contents);
+  let header = Header.init mem in
   {
     stack = Zstack.make stack_size;
     call_state = [];
@@ -82,10 +53,5 @@ let init ~stack_size ~fname =
     header = header
   }
 
-let _ =
-  let fname = "ZORK1.DAT" in
-  let contents = In_channel.read_all fname in
-  let mem = Memory.init in
-  Memory.load_bytes mem contents;
-  let header = Header.init mem in
-  Header.dump header
+let dump_header game =
+  Header.dump game.header
