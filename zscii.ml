@@ -1,4 +1,5 @@
 open Core.Std
+open Ztypes
 
 type zchar = int
 
@@ -15,7 +16,7 @@ type alphabet = A0 | A1 | A2
 
 let a0 = "abcdefghijklmnopqrstuvwxyz"
 let a1 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-let a2 = " ^0123456789.,!?_#'\"/\-:()"
+let a2 = " ^0123456789.,!?_#'\"/\\-:()"
 
 type shift = S2 | S3 (* See section 3.2.2 *)
 
@@ -44,7 +45,7 @@ let shift_lock state x =
   state.base <- state.current
 
 let read_char zchar alpha =
-  let x = zchar - 5 in
+  let x = zchar - 6 in
   match alpha, zchar with
   | A0, _ -> Char a0.[x]
   | A1, _ -> Char a1.[x]
@@ -87,45 +88,9 @@ module Z3Reader : READER = struct
     | _ -> LowCharError
 end
 
-(* Abbreviations *)
-let abbr i = "TODO"
-
-(* Digraphs *)
-let digraph h l = "TODO"
-
-let parse_string read_low_char zchars =
-  let state = { base = A0; current = A0 } in
-  let buf = Buffer.create 32 in
-  let rec read zchars = match zchars with
-    | [] -> ()
-    | z :: zs -> begin
-        let token =
-          if z < 6 then read_low_char z else read_char z state.current
-        in match token with
-        | Shift s -> shift state s; read zs
-        | Lock s -> shift_lock state s; read zs
-        | Char c -> Buffer.add_char buf c; read zs
-        | Newline -> Buffer.add_char buf '\n'; read zs
-        | Abbr a -> (
-            match zs with
-            | [] -> raise String_read_error
-            | z' :: zs' ->
-              Buffer.add_string buf (abbr (32 * (a - 1) + z')); read zs'
-          )
-        | Digraph -> (
-            match zs with
-            | h :: l :: zs' -> Buffer.add_string buf (digraph h l); read zs'
-            | _ -> raise String_read_error
-          )
-        | LowCharError -> raise String_read_error
-      end
-  in
-  read zchars;
-  Buffer.contents buf
-
-let read_string mem addr =
+let read_zstring mem addr =
   let rec read mem addr zchars =
-    let w = Z.Memory.get_word mem addr in
+    let w = Memory.get_word mem addr in
     let bit, first, second, third = unpack_word w in
     let zchars = third :: second :: first :: zchars in
     if bit = 1 then
@@ -191,3 +156,53 @@ module Output = struct
     | x when (155 <= x && x <= 251) -> Extra x
     | _ -> raise Unrecognized_output
 end
+
+(* Digraphs *)
+let digraph h l = "TODO"
+
+let parse_string game read_low_char zchars =
+  let open Z in
+  let open Header in
+  let mem = game.mem in
+  let abbr_table = game.header.abbr_table in
+  let rec abbr i j =
+    let ptr = abbr_table + 2 * (32 * (i - 1) + j) in
+    let address = WordAddr (Memory.get_u16 mem ptr) in
+    let address = int_of_address address in
+    let zs = read_zstring mem address in
+    parse true zs
+  and parse is_abbr zchars =
+    let state = { base = A0; current = A0 } in
+    let buf = Buffer.create 32 in
+    let rec read zchars = match zchars with
+      | [] -> ()
+      | z :: zs -> begin
+          let token =
+            if z < 6 then read_low_char z else read_char z state.current
+          in match token with
+          | Shift s -> shift state s; read zs
+          | Lock s -> shift_lock state s; read zs
+          | Char c -> Buffer.add_char buf c; read zs
+          | Newline -> Buffer.add_char buf '\n'; read zs
+          | Abbr a -> (
+              match is_abbr, zs with
+              | true, _ -> raise String_read_error (* nested abbreviation *)
+              | _, [] -> raise String_read_error
+              | _, z' :: zs' ->
+                Buffer.add_string buf (abbr a z'); read zs'
+            )
+          | Digraph -> (
+              match zs with
+              | h :: l :: zs' -> Buffer.add_string buf (digraph h l); read zs'
+              | _ -> raise String_read_error
+            )
+          | LowCharError -> raise String_read_error
+        end
+    in
+    read zchars;
+    Buffer.contents buf
+  in
+  parse false zchars
+
+let read_string game addr =
+  parse_string game Z3Reader.read_low_char (read_zstring game.mem addr)

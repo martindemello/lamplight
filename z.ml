@@ -2,17 +2,6 @@ open Core.Std
 open Ztypes
 
 module Header = struct
-  type t = {
-    version : int;
-    hi_mem: int;
-    init_pc: int;
-    dict: int;
-    obj_table: int;
-    globals: int;
-    static_mem: int;
-    abbr_table: int
-  }
-
   let init mem = 
     let open Memory in
     {
@@ -30,14 +19,6 @@ module Header = struct
     Printf.printf "version: %d\nhi_mem: %x\ninit_pc: %x\ndict: %x\nobj_t: %x\nglobals: %x\nstatic_mem: %x\nabbrs: %x\n" 
     h.version h.hi_mem h.init_pc h.dict h.obj_table h.globals h.static_mem h.abbr_table
 end
-
-type zmachine = {
-  mutable header : Header.t;
-  mutable pc : int;
-  stack: Zstack.t;
-  mutable call_state: int list;
-  mem : Memory.t
-}
 
 let init ~stack_size ~fname =
   let contents = In_channel.read_all fname in
