@@ -28,3 +28,6 @@ let set_word mem i w =
 let get_u16 mem i = get_word mem i
 
 let get_i16 mem i = 65536 - (get_u16 mem i)
+
+(* Blob of binary data, as a string *)
+let get_blob mem i len = String.sub ~pos:i ~len mem
