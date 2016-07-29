@@ -44,6 +44,9 @@ let shift_lock state x =
   state.current <- shift_alphabet x state.base;
   state.base <- state.current
 
+let unshift state =
+  state.current <- state.base
+
 let read_char zchar alpha =
   let x = zchar - 6 in
   match alpha, zchar with
@@ -179,7 +182,9 @@ let parse_string game read_low_char zchars =
       | z :: zs -> begin
           let token =
             if z < 6 then read_low_char z else read_char z state.current
-          in match token with
+          in
+          unshift state; (* restore state after reading char *)
+          match token with
           | Shift s -> shift state s; read zs
           | Lock s -> shift_lock state s; read zs
           | Char c -> Buffer.add_char buf c; read zs
