@@ -128,31 +128,23 @@ type opcode_ext =
   | PRINT_FORM
   | MAKE_MENU [@@deriving enum]
 
-(* following txd from the inform tools *)
-type op_class = EXTENDED_OPERAND | TWO_OPERAND | ONE_OPERAND | ZERO_OPERAND | VARIABLE_OPERAND
-
-let class_of_code version opcode =
-  if version > 4 && opcode == 0xbe then
-    EXTENDED_OPERAND (* not supported yet *)
-  else if (opcode < 0x80) then
-    TWO_OPERAND
-  else if (opcode < 0xb0) then
-    ONE_OPERAND
-  else if (opcode < 0xc0) then
-    ZERO_OPERAND
-  else
-    VARIABLE_OPERAND
-
-type opcode = Op2 of opcode_2op | Op1 of opcode_1op | Op0 of opcode_0op
+type opcode = Op2op of opcode_2op | Op1op of opcode_1op | Op0op of opcode_0op
             | OpVar of opcode_var | OpExt of opcode_ext
 
-let opcode_of_int version code =
-  let f x = match x with Some i -> i | None -> raise (Failure "opcode_of_int failed!") in
-  match class_of_code version code with
-  | EXTENDED_OPERAND -> OpExt (f (opcode_ext_of_enum (code land 0x3f)))
-  | TWO_OPERAND -> Op2 (f (opcode_2op_of_enum (code land 0x1f)))
-  | VARIABLE_OPERAND when ((code > 191) && (code < 224)) ->
-      Op2 (f (opcode_2op_of_enum (code land 0x3f)))
-  | VARIABLE_OPERAND -> OpVar (f (opcode_var_of_enum (code land 0x3f)))
-  | ONE_OPERAND -> Op1 (f (opcode_1op_of_enum (code land 0x0f)))
-  | ZERO_OPERAND -> Op0 (f (opcode_0op_of_enum (code land 0x0f)))
+type operand_type =
+    OPERAND_LARGE | OPERAND_SMALL | OPERAND_VARIABLE
+  | OPERAND_OMITTED [@@deriving enum]
+
+exception Trusted_enum_failure
+
+let trust = function
+  | Some x -> x
+  | None -> raise Trusted_enum_failure
+
+(* The "cannot fail" versions *)
+let get_operand_type n = trust @@ operand_type_of_enum n
+let get_opcode_0op n = Op0op (trust @@ opcode_0op_of_enum n)
+let get_opcode_1op n = Op1op (trust @@ opcode_1op_of_enum n)
+let get_opcode_2op n = Op2op (trust @@ opcode_2op_of_enum n)
+let get_opcode_var n = OpVar (trust @@ opcode_var_of_enum n)
+let get_opcode_ext n = OpExt (trust @@ opcode_ext_of_enum n)

@@ -35,3 +35,6 @@ let pop s =
 
 let peek s =
   s.stack.(s.top)
+
+let get s n =
+  s.stack.(n)

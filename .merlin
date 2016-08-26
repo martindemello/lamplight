@@ -1,3 +1,4 @@
 S .
 B _build
 PKG core
+PKG ppx_deriving.enum

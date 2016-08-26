@@ -1,6 +1,8 @@
 open Core.Std
 open Ztypes
 
+exception Stack_error
+
 module Header = struct
   let init mem = 
     let open Memory in
@@ -36,3 +38,26 @@ let init ~stack_size ~fname =
 
 let dump_header game =
   Header.dump game.header
+
+let read_byte game =
+  let ret = Memory.get_byte game.mem game.pc in
+  game.pc <- game.pc + 1;
+  ret
+
+let read_u16 game =
+  let ret = Memory.get_u16 game.mem game.pc in
+  game.pc <- game.pc + 2;
+  ret
+
+let get_global game var =
+  42
+
+let get_variable game var =
+  if var = 0 then
+    match Zstack.pop game.stack with
+    | Ok ret -> ret
+    | _ -> raise Stack_error
+  else if var < 0x10 then
+    Zstack.get game.stack (var - 1)
+  else
+    get_global game var
